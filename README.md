@@ -8,11 +8,12 @@
 ```bash
 kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/download/v0.60.0/opentelemetry-operator.yaml
 ```
-* Deploy Collector, there are options to deploy it as sidecar or as separate pod
+* Deploy Collector, there are options to deploy it as sidecar or as a separate pod
 ```bash
 kubectl apply -f collector-config.yaml
 ```
-* As an option we can also install auto-instrumentator and we do not have to make changes to code but customization is limited. To make it work we have to annotate our pods with `k apply -f collector-config.yaml`
+* As an option we can also install auto-instrumentator: `instrumentation.yaml`, which will export trace from application without any code changes. After we install instrumentator we have to annotate our pods with `instrumentation.opentelemetry.io/injest-python: "true"`
+* Auto-instrumentation have limitations so decided to set it up manually inside application.
 ![Trace](docs/log_2.png)
 * [Docs to check how we can setup traces](https://google-cloud-opentelemetry.readthedocs.io/en/latest/index.html)
 
