@@ -1,0 +1,61 @@
+###########
+# BUILDER #
+###########
+FROM python:3.11-slim-buster as builder
+
+RUN apt-get -y update --allow-releaseinfo-change && apt-get install curl gnupg -y && \
+    curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    curl https://packages.microsoft.com/config/debian/10/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
+    apt-get -y update --allow-releaseinfo-change && ACCEPT_EULA=Y apt-get install gcc libpq-dev build-essential msodbcsql17 mssql-tools unixodbc-dev -y && \
+    apt-get clean
+
+WORKDIR /usr/src/app
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+COPY ../backend/requirements.txt .
+
+RUN pip install --upgrade pip && \
+    pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt
+
+
+#########
+# FINAL #
+#########
+FROM python:3.11-slim-buster
+
+RUN mkdir -p /home/app
+
+RUN addgroup --system app && adduser --system --group app
+
+ENV HOME=/home/app
+WORKDIR $HOME
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+RUN apt-get -y update --allow-releaseinfo-change && apt-get install curl gnupg -y && \
+    curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    curl https://packages.microsoft.com/config/debian/10/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
+    apt-get -y update --allow-releaseinfo-change && ACCEPT_EULA=Y apt-get install gcc libpq-dev build-essential msodbcsql17 mssql-tools unixodbc-dev -y && \
+    apt-get clean
+
+RUN echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bash_profile && echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
+
+COPY --from=builder /usr/src/app/wheels /wheels
+COPY --from=builder /usr/src/app/requirements.txt .
+RUN pip install --upgrade pip
+RUN pip install --no-cache /wheels/*
+
+COPY ../backend .
+
+RUN chown -R app:app $HOME
+
+USER app
+
+RUN chmod 755 ./entrypoint.sh
+
+EXPOSE 8000
+
+CMD ["./entrypoint.sh"]
